@@ -1,0 +1,109 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# =====================================================================
+# 1. MOCK DATA GENERATION & INGESTION
+# =====================================================================
+def generate_mock_data():
+    """Simulates raw transactional logs and customer economics indices."""
+    np.random.seed(42)
+    months = pd.date_range(start="2026-01-01", periods=9, freq="MS").strftime("%B")
+    
+    data = {
+        "Month": list(months),
+        "Revenue_K": [120, 135, 130, 145, 160, 155, 175, 190, 210],
+        "Sessions": [50000, 52000, 51000, 54000, 58000, 57000, 61000, 63000, 66000],
+        "Transactions": [1050, 1150, 1120, 1280, 1450, 1460, 1620, 1710, 1820],
+        "CAC": [45.0, 43.5, 44.0, 41.0, 39.5, 38.0, 36.5, 35.0, 34.0],
+        "LTV": [135, 138, 140, 142, 145, 146, 148, 147, 148]
+    }
+    df = pd.DataFrame(data)
+    
+    # Introduce explicit NaN gaps to demonstrate pipeline cleaning capabilities
+    df.loc[2, "Revenue_K"] = np.nan 
+    return df
+
+# =====================================================================
+# 2. DATA PIPELINE CLEANING & ENRICHMENT
+# =====================================================================
+def run_analytics_pipeline(df):
+    """Handles continuous linear interpolation and computes metric layers."""
+    # Interpolate data anomalies smoothly across timelines
+    df["Revenue_K"] = df["Revenue_K"].interpolate(method="linear")
+    
+    # Derivation of conversion rates and health ratios
+    df["Conversion_Rate"] = (df["Transactions"] / df["Sessions"]) * 100
+    df["LTV_CAC_Ratio"] = df["LTV"] / df["CAC"]
+    
+    # Format precision boundaries
+    df["Conversion_Rate"] = df["Conversion_Rate"].round(2)
+    df["LTV_CAC_Ratio"] = df["LTV_CAC_Ratio"].round(2)
+    return df
+
+# =====================================================================
+# 3. VISUALIZATION ENGINE
+# =====================================================================
+def generate_visualizations(df):
+    """Renders high-fidelity dual plots for presentation."""
+    
+    # Chart 1: Revenue Stack vs. Conversion Overlays (Dual-Axis Combo)
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    
+    color_bar = '#2b5c8f'
+    bars = ax1.bar(df["Month"], df["Revenue_K"], color=color_bar, alpha=0.8, width=0.5, label="Revenue ($K)")
+    ax1.set_xlabel("Month (2026)", fontsize=11, fontweight='bold', labelpad=10)
+    ax1.set_ylabel("Revenue ($ Thousands)", color=color_bar, fontsize=11, fontweight='bold')
+    ax1.tick_params(axis='y', labelcolor=color_bar)
+    ax1.set_ylim(0, 250)
+    
+    ax2 = ax1.twinx()
+    color_line = '#e67e22'
+    ax2.plot(df["Month"], df["Conversion_Rate"], color=color_line, marker='o', linewidth=2.5, label="Conversion Rate (%)")
+    ax2.set_ylabel("Conversion Rate (%)", color=color_line, fontsize=11, fontweight='bold')
+    ax2.tick_params(axis='y', labelcolor=color_line)
+    ax2.set_ylim(0, 4)
+    
+    # Inject values dynamically directly on top of charts
+    for bar in bars:
+        yval = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2.0, yval + 5, f"${int(yval)}K", ha='center', va='bottom', fontsize=9)
+        
+    for i, txt in enumerate(df["Conversion_Rate"]):
+        ax2.annotate(f"{txt}%", (df["Month"][i], df["Conversion_Rate"][i]), textcoords="offset points", xytext=(0,10), ha='center', color='#b85d06', fontweight='bold')
+
+    plt.title("Figure 2.1: Monthly Revenue vs Conversion Rate Optimization Trends", fontsize=13, fontweight='bold', pad=15)
+    fig.tight_layout()
+    plt.savefig("revenue_conversion_trends.png", dpi=300)
+    plt.close()
+    
+    # Chart 2: Customer Acquisition Cost vs Lifetime Value Trends (Line Plot)
+    plt.figure(figsize=(10, 5))
+    plt.plot(df["Month"], df["CAC"], color='#c0392b', marker='s', linewidth=2, label="Customer Acquisition Cost (CAC)")
+    plt.plot(df["Month"], df["LTV"], color='#27ae60', marker='^', linewidth=2, label="Customer Lifetime Value (LTV)")
+    
+    # Structural step anchors for reference points
+    for i in [0, 4, 8]:
+        plt.text(df["Month"][i], df["CAC"][i] - 8, f"${df['CAC'][i]}", ha='center', color='#c0392b', fontsize=9)
+        plt.text(df["Month"][i], df["LTV"][i] + 5, f"${df['LTV'][i]}", ha='center', color='#27ae60', fontsize=9)
+        
+    plt.title("Figure 2.2: Efficiency Metric Tracking - CAC vs LTV Trend", fontsize=13, fontweight='bold', pad=15)
+    plt.xlabel("Month (2026)", fontsize=11, fontweight='bold')
+    plt.ylabel("Value in USD ($)", fontsize=11, fontweight='bold')
+    plt.ylim(0, 200)
+    plt.legend(loc="upper left")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig("cac_vs_ltv_efficiency.png", dpi=300)
+    plt.close()
+
+# =====================================================================
+# 4. EXECUTION ORCHESTRATOR
+# =====================================================================
+if __name__ == "__main__":
+    raw_data = generate_mock_data()
+    processed_df = run_analytics_pipeline(raw_data)
+    generate_visualizations(processed_df)
+    
+    print("--- PIPELINE RUN SUCCESSFUL ---")
+    print(processed_df.to_string(index=False)) 
